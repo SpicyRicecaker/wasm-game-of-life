@@ -1,6 +1,6 @@
 mod utils;
 
-use std::borrow::Borrow;
+use std::fmt;
 
 use wasm_bindgen::prelude::*;
 
@@ -10,10 +10,10 @@ use wasm_bindgen::prelude::*;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-#[wasm_bindgen]
-extern "C" {
-    fn alert(s: &str);
-}
+// #[wasm_bindgen]
+// extern "C" {
+//     fn alert(s: &str);
+// }
 
 // #[wasm_bindgen]
 // pub fn greet(name: &str) {
@@ -37,12 +37,26 @@ pub struct Universe {
     cells: Vec<Cell>,
 }
 
+#[wasm_bindgen]
 impl Universe {
-    fn new(width: u32, height: u32) -> Self {
-        let mut cells = Vec::new();
-        for _ in 0..width * height {
-            cells.push(Cell::Dead)
-        }
+    #[wasm_bindgen]
+    pub fn new(width: u32, height: u32) -> Self {
+        // let mut cells = Vec::new();
+        // for _ in 0..width * height {
+        //     cells.push(Cell::Dead)
+        // }
+        // let width = 64;
+        // let height = 64;
+
+        let cells = (0..width * height)
+            .map(|i| {
+                if i % 2 == 0 || i % 7 == 0 {
+                    Cell::Alive
+                } else {
+                    Cell::Dead
+                }
+            })
+            .collect();
 
         Universe {
             width,
@@ -77,6 +91,55 @@ impl Universe {
 
         neighbors
     }
+
+    // Each game round
+    pub fn tick(&mut self) {
+        // Clone all cells so we can easily update the game board
+        let mut next = self.cells.clone();
+
+        // Loop through every cell in the board
+        for row in 0..self.width {
+            for column in 0..self.height {
+                // Get the actual index of this cell
+                let index = self.get_index(row, column);
+                let state = self.cells[index];
+
+                // Set this cell depending on the state of the cell and surrounding neighbors,
+                // According to Conway's game of life
+                // I fkin love rust enums & matching wtf
+                next[index] = match (state, self.live_neighbor_count(row, column)) {
+                    // if alive,
+                    // with 2-3 neighbors, you live
+                    (Cell::Alive, 2) | (Cell::Alive, 3) => Cell::Alive,
+                    // otherwise, you die
+                    (Cell::Alive, _) => Cell::Dead,
+                    // if dead,
+                    // width 3 neighbors, you are born
+                    (Cell::Dead, 3) => Cell::Alive,
+                    // otherwise, you ded
+                    _ => Cell::Dead,
+                }
+            }
+        }
+        self.cells = next;
+    }
+    
+    pub fn render(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl fmt::Display for Universe {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for line in self.cells.as_slice().chunks(self.width as usize) {
+            for &cell in line {
+                let symbol = if cell == Cell::Dead { '◻' } else { '◼' };
+                write!(f, "{}", symbol)?;
+            }
+            write!(f, "\n")?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -95,13 +158,13 @@ mod testing {
                 indices.push(universe.get_index(y, x));
             }
         }
-        
+
         for idx in indices.iter() {
             universe.cells[*idx] = Cell::Alive;
         }
         // Fill up every cell
 
-        // Bottom right 
+        // Bottom right
         assert_eq!(universe.live_neighbor_count(2, 2), 8);
         // Middle
         assert_eq!(universe.live_neighbor_count(1, 1), 8);
