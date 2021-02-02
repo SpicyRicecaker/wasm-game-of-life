@@ -65,7 +65,7 @@ impl Universe {
         }
     }
     // Returns the index of the cell in terms of wasm linear memory
-    fn get_index(&self, row: u32, column: u32) -> usize {
+    pub fn get_index(&self, row: u32, column: u32) -> usize {
         // Multiply row by width and add column
         (row * self.width + column) as usize
     }
@@ -123,9 +123,29 @@ impl Universe {
         }
         self.cells = next;
     }
-    
+
     pub fn render(&self) -> String {
         self.to_string()
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn cells(&self) -> *const Cell {
+        self.cells.as_ptr()
+    }
+    
+    pub fn toggle_cell(&mut self, idx: usize) {
+        let new_state = match self.cells[idx] {
+            Cell::Dead => Cell::Alive,
+            Cell::Alive => Cell::Dead
+        };
+        self.cells[idx] = new_state;
     }
 }
 
