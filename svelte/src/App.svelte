@@ -2,6 +2,18 @@
   import { onMount } from 'svelte';
   import type { Universe, Cell } from '../../pkg';
 
+  let speed = 0.01;
+  let scaleFactor = 2;
+
+  // Global var
+  let MyGame = {
+    frames: 0,
+    running: false,
+    stopMain: null,
+  };
+
+  $: runlabel = MyGame.running ? 'pause' : 'unpause';
+
   const rust = import('../../pkg');
   const memory = import('../../pkg/index_bg.wasm');
   const init = (
@@ -16,12 +28,11 @@
     // Initiate canvas
     const canvas = document.getElementById('canvas-wasm') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d');
-    let canvasLW = window.innerHeight;
-    if (window.innerWidth < window.innerHeight) {
-      canvasLW = window.innerWidth;
-    }
-    canvas.width = canvasLW;
-    canvas.height = canvasLW;
+
+    // let canvasLW = canvas.offsetWidth *2;
+
+    canvas.width = canvas.offsetWidth * scaleFactor;
+    canvas.height = canvas.offsetHeight * scaleFactor;
 
     // Initiate universe
     const universe = wasm.Universe.new(64, 64);
@@ -40,7 +51,7 @@
       ctx.beginPath();
 
       // For every row
-      for (let row = 0; row < height; row++) {
+      for (let row = 0; row <= height; row++) {
         // Draw line from beg to end of line
         const offset = row * dh;
         ctx.beginPath();
@@ -51,7 +62,7 @@
       }
 
       // For every column
-      for (let column = 0; column < width; column++) {
+      for (let column = 0; column <= width; column++) {
         const offset = column * dw;
         ctx.beginPath();
         ctx.moveTo(offset, 0);
@@ -100,23 +111,13 @@
       drawCells();
     };
 
-    // Global var
-    let MyGame = {
-      frames: 0,
-      running: false,
-      stopMain: null,
-    };
-
     // Add event listener
     const paint = (e: MouseEvent) => {
       // Calculate cell based off of offset x and offset y
-      let row = e.offsetY / dh;
-      let column = e.offsetX / dw;
+      let row = (e.offsetY * scaleFactor) / dh;
+      let column = (e.offsetX * scaleFactor) / dw;
 
-      console.log(row, column);
-      console.log(universe.get_index(row, column));
-      console.log(universe.toggle_cell(universe.get_index(row, column)));
-      
+      universe.toggle_cell(universe.get_index(row, column));
       render();
     };
 
@@ -125,7 +126,7 @@
     const main = () => {
       MyGame.frames++;
       // 5x slower
-      if (MyGame.frames > 5) {
+      if (MyGame.frames > speed) {
         universe.tick();
         render();
         MyGame.frames = 0;
@@ -149,7 +150,6 @@
       .getElementById('start-or-stop')
       .addEventListener('click', startOrStop);
 
-
     MyGame.running = true;
     main();
     // })();
@@ -162,7 +162,31 @@
 
 <main>
   <canvas id="canvas-wasm" />
-  <button id="start-or-stop">start/stop</button>
+  <div id="controls">
+    <button id="start-or-stop">
+      {runlabel}
+    </button>
+    Speed
+    <input
+      type="range"
+      min=".1"
+      max="10"
+      step=".1"
+      bind:value={speed}
+      class="slider"
+      id="speed"
+    />
+    <!-- Scaling (breaks adding lol scuffed)
+    <input
+      type="range"
+      min=".1"
+      max="3"
+      step=".1"
+      bind:value={scaleFactor}
+      class="slider"
+      id="speed"
+    /> -->
+  </div>
 </main>
 
 <style lang="scss">
@@ -176,9 +200,24 @@
     height: 100%;
 
     display: grid;
-    justify-content: center;
-    align-content: center;
+    // justify-content: center;
+    // align-content: center;
 
-    /* font-size: 1rem; */
+    grid-template: 'canvas controls' / minmax(0, 4fr) minmax(0, 1fr);
+  }
+
+  #controls {
+    grid-area: controls;
+    display: grid;
+    // justify-self: center;
+    // align-content: center;
+  }
+
+  #canvas-wasm {
+    grid-area: canvas;
+    // justify-self: center;
+    // align-content: center;
+    width: 100%;
+    height: 100%;
   }
 </style>
